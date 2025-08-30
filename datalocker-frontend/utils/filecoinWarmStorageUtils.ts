@@ -1,0 +1,160 @@
+import {
+  PandoraService as FilecoinWarmStorageService,
+  SIZE_CONSTANTS,
+  Synapse,
+  TIME_CONSTANTS,
+} from "@filoz/synapse-sdk";
+import { config } from "@/config";
+import { FilecoinWarmStorageBalance, StorageCosts } from "@/types";
+import { DATA_SET_CREATION_FEE } from "./constants";
+
+/**
+ * Fetches the current storage costs from the FilecoinWarmStorage service.
+ * @param synapse - The Synapse instance
+ * @returns The storage costs object
+ */
+export const fetchFilecoinWarmStorageStorageCosts = async (
+  synapse: Synapse
+): Promise<StorageCosts> => {
+  const filecoinWarmStorageService = new FilecoinWarmStorageService(
+    synapse.getProvider(),
+    synapse.getPandoraAddress(),
+    synapse.getPDPVerifierAddress()
+  );
+  return filecoinWarmStorageService.getServicePrice();
+};
+
+/**
+ * Fetches the current FilecoinWarmStorage balance data for a given storage capacity (in bytes) and period (in days).
+ * @param synapse - The Synapse instance
+ * @param storageCapacityBytes - Storage capacity in bytes
+ * @param persistencePeriodDays - Desired persistence period in days
+ * @returns The FilecoinWarmStorage balance data object
+ */
+export const fetchFilecoinWarmStorageBalanceData = async (
+  synapse: Synapse,
+  storageCapacityBytes: number,
+  persistencePeriodDays: number
+): Promise<FilecoinWarmStorageBalance> => {
+  const filecoinWarmStorageService = new FilecoinWarmStorageService(
+    synapse.getProvider(),
+    synapse.getPandoraAddress(),
+    synapse.getPDPVerifierAddress()
+  );
+  return filecoinWarmStorageService.checkAllowanceForStorage(
+    storageCapacityBytes,
+    config.withCDN,
+    synapse.payments,
+    persistencePeriodDays
+  );
+};
+
+/**
+ * Calculates current storage usage based on rate usage and storage capacity.
+ *
+ * @param pandoraBalance - The FilecoinWarmStorage balance data
+ * @param storageCapacityBytes - The storage capacity in bytes
+ * @returns Object with currentStorageBytes and currentStorageGB
+ */
+export const calculateCurrentStorageUsage = (
+  pandoraBalance: FilecoinWarmStorageBalance,
+  storageCapacityBytes: number
+): { currentStorageBytes: bigint; currentStorageGB: number } => {
+  let currentStorageBytes = 0n;
+  let currentStorageGB = 0;
+
+  if (
+    pandoraBalance.currentRateUsed > 0n &&
+    pandoraBalance.rateAllowanceNeeded > 0n
+  ) {
+    try {
+      // Proportionally calculate storage usage based on rate used
+      currentStorageBytes =
+        (pandoraBalance.currentRateUsed * BigInt(storageCapacityBytes)) /
+        pandoraBalance.rateAllowanceNeeded;
+      // Convert bytes to GB
+      currentStorageGB =
+        Number(currentStorageBytes) / Number(SIZE_CONSTANTS.GiB);
+    } catch (error) {
+      console.warn("Failed to calculate current storage usage:", error);
+    }
+  }
+
+  return { currentStorageBytes, currentStorageGB };
+};
+
+/**
+ * Checks if the current allowances and balances are sufficient for storage and dataset creation.
+ *
+ * @param filecoinWarmStorageBalance - The FilecoinWarmStorage balance data
+ * @param minDaysThreshold - Minimum days threshold for lockup sufficiency
+ * @param includeDataSetCreationFee - Whether to include the dataset creation fee in calculations
+ * @returns Object with sufficiency flags and allowance details
+ */
+export const checkAllowances = async (
+  filecoinWarmStorageBalance: FilecoinWarmStorageBalance,
+  minDaysThreshold: number,
+  includeDataSetCreationFee: boolean
+) => {
+  // Calculate the rate needed per epoch
+  const rateNeeded = filecoinWarmStorageBalance.costs.perEpoch;
+
+  // Calculate daily lockup requirements
+  const lockupPerDay = TIME_CONSTANTS.EPOCHS_PER_DAY * rateNeeded;
+
+  // Calculate remaining lockup and persistence days
+  const currentLockupRemaining =
+    filecoinWarmStorageBalance.currentLockupAllowance -
+    filecoinWarmStorageBalance.currentLockupUsed;
+
+  // Calculate total allowance needed including dataset creation fee if required
+  const dataSetCreationFee = includeDataSetCreationFee
+    ? DATA_SET_CREATION_FEE
+    : BigInt(0);
+
+  // Use available properties for lockup and deposit
+  const totalLockupNeeded = filecoinWarmStorageBalance.lockupAllowanceNeeded;
+  const depositNeeded = filecoinWarmStorageBalance.depositAmountNeeded;
+
+  // Use the greater of current or needed rate allowance
+  const rateAllowanceNeeded =
+    filecoinWarmStorageBalance.currentRateAllowance >
+    filecoinWarmStorageBalance.rateAllowanceNeeded
+      ? filecoinWarmStorageBalance.currentRateAllowance
+      : filecoinWarmStorageBalance.rateAllowanceNeeded;
+
+  // Add dataset creation fee to lockup and deposit if needed
+  const lockupAllowanceNeeded = totalLockupNeeded + dataSetCreationFee;
+  const depositAmountNeeded = depositNeeded + dataSetCreationFee;
+
+  // Check if lockup balance is sufficient for dataset creation
+  const isLockupBalanceSufficientForDataSetCreation =
+    currentLockupRemaining >= lockupAllowanceNeeded;
+
+  // Calculate how many days of persistence are left
+  const persistenceDaysLeft =
+    Number(currentLockupRemaining) / Number(lockupPerDay);
+
+  // Determine sufficiency of allowances
+  const isRateSufficient =
+    filecoinWarmStorageBalance.currentRateAllowance >= rateAllowanceNeeded;
+  // Lockup is sufficient if enough days remain and enough for dataset creation
+  const isLockupSufficient =
+    persistenceDaysLeft >= Number(minDaysThreshold) &&
+    isLockupBalanceSufficientForDataSetCreation;
+  // Both must be sufficient
+  const isSufficient = isRateSufficient && isLockupSufficient;
+
+  // Return detailed sufficiency and allowance info
+  return {
+    isSufficient, // true if both rate and lockup are sufficient
+    isLockupSufficient, // true if lockup is sufficient
+    isRateSufficient, // true if rate is sufficient
+    rateAllowanceNeeded, // rate allowance required
+    lockupAllowanceNeeded, // lockup allowance required
+    depositAmountNeeded, // deposit required
+    currentLockupRemaining, // current lockup remaining
+    lockupPerDay, // lockup needed per day
+    persistenceDaysLeft, // days of persistence left
+  };
+};
