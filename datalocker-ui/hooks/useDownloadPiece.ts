@@ -3,7 +3,7 @@ import { Synapse } from "@filoz/synapse-sdk";
 import { useEthersSigner } from "@/hooks/useEthers";
 import { useAccount } from "wagmi";
 import { useNetwork } from "@/hooks/useNetwork";
-import { config } from "@/config";
+import { config } from "../config";
 
 /**
  * Hook to download a piece from the Filecoin network using Synapse.
@@ -32,7 +32,9 @@ export const useDownloadPiece = (commp: string, filename: string) => {
       // 3) Download file
       const uint8ArrayBytes = await storageService.download(commp);
 
-      const file = new File([uint8ArrayBytes], filename);
+      // Convert to standard Uint8Array to ensure compatibility
+      const standardArray = new Uint8Array(uint8ArrayBytes);
+      const file = new File([standardArray], filename, { type: 'application/octet-stream' });
 
       // Download file to browser
       const url = URL.createObjectURL(file);
