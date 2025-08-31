@@ -8,7 +8,7 @@ interface HeroSectionProps {
 
 export function HeroSection({ onEnterApp }: HeroSectionProps) {
   return (
-    <section className="relative pt-16 sm:pt-32 pb-24 sm:pb-32 px-4 sm:px-6 lg:px-8 overflow-hidden">
+    <section className="relative pt-32 sm:pt-32 pb-24 sm:pb-32 px-4 sm:px-6 lg:px-8 overflow-hidden">
       {/* Advanced curved bottom border - Fixed visibility issue */}
       <div className="absolute -bottom-px left-0 right-0 z-20">
         <svg 

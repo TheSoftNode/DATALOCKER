@@ -38,7 +38,7 @@ export function Navigation({ onEnterApp }: NavigationProps) {
             initial={{ x: 20, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
             transition={{ delay: 0.3 }}
-            className="flex items-center space-x-2 sm:space-x-4"
+            className="flex items-center space-x-2"
           >
             <motion.div 
               whileHover={{ scale: 1.1 }} 
