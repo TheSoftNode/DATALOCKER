@@ -26,7 +26,7 @@ contract DataLocker {
     uint256 public constant STORAGE_DURATION = 180 days; // ~6 months
     uint256 public constant RENEWAL_THRESHOLD = 30 days; // Renew when less than 30 days remain
     uint256 public constant MIN_DEPOSIT_FIL = 1 ether; // Minimum FIL deposit
-    uint256 public constant MIN_DEPOSIT_USDFC = 100 * 1e6; // Minimum USDFC deposit (100 USDFC)
+    uint256 public constant MIN_DEPOSIT_USDFC = 5 * 1e6; // Minimum USDFC deposit (5 USDFC for testing)
     uint256 public constant EPOCHS_PER_DAY = 2880; // 30-second epochs per day
 
     // Production contract addresses on Calibration testnet
