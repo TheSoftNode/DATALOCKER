@@ -31,15 +31,54 @@ Frontend (Next.js 15)  ←→  Smart Contract (FEVM)  ←→  SynapseSDK (Pandor
 
 ## 🚀 **Live Demo**
 
-**Contract**: `0x5b4495F43501842C513afef03e581f0791fDe406` (Calibration Testnet)  
-**Frontend**: `http://localhost:3001`
+**🌐 Live App**: **https://datalocker.vercel.app/**  
+**📋 Contract**: `0x5b4495F43501842C513afef03e581f0791fDe406` (Calibration Testnet)
 
-### **Try it yourself:**
+## 📖 **How to Use DataLocker**
 
-1. Connect wallet to Filecoin Calibration testnet
-2. Get USDFC from faucet: [USDFC Faucet](https://faucet.filecoin.io)
-3. Upload a file and select FIL or USDFC payment
-4. Watch automated storage management in action!
+### **Step 1: Connect Your Wallet**
+
+1. Visit **https://datalocker.vercel.app/**
+2. Click "Connect Wallet" and select your wallet (MetaMask recommended)
+3. Switch to **Filecoin Calibration Testnet** when prompted
+
+### **Step 2: Get Test Tokens**
+
+- **FIL**: Get from [Calibration Faucet](https://faucet.calibnet.chainsafe-fil.io/)
+- **USDFC**: Get from [USDFC Faucet](https://faucet.filecoin.io) (5 USDFC minimum required)
+
+### **Step 3: Activate Storage (IMPORTANT)**
+
+🚨 **Before uploading files, you MUST activate storage:**
+
+1. Go to the **"Actions"** section in the dashboard
+2. Find **"Initiate Storage Deal"**
+3. Use approximately **0.017 tokens** (FIL or USDFC) to activate
+4. This sets up your storage capacity with the SynapseSDK
+5. Wait for activation confirmation
+
+### **Step 4: Upload Files**
+
+1. Click **"Upload File"** or drag & drop
+2. Select your file (any type supported)
+3. Choose payment method: **FIL** or **USDFC**
+4. Add a label for your file
+5. Confirm the transaction
+6. Your file is now stored with **6-month automatic renewal**!
+
+### **Step 5: Monitor Storage**
+
+- View all your files in **"My Storage"**
+- Check expiration dates and renewal status
+- Monitor storage balance and usage
+- Withdraw unused funds when needed
+
+## ⚠️ **Important Notes**
+
+- **Activation Required**: You must use the Actions section to initiate storage before uploading
+- **Minimum Deposits**: 1 FIL or 5 USDFC required
+- **Auto-Renewal**: Files automatically renew if sufficient funds available
+- **Testnet Only**: Currently deployed on Calibration testnet
 
 ## 🛠 **Technology Stack**
 
@@ -198,4 +237,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 **Built with ❤️ for Aleph Hackathon 2025**
 
-[🌐 Repository](https://github.com/TheSoftNode/DATALOCKER) | [📖 Documentation](./HACKATHON_SUBMISSION.md) | [🎬 Demo Video](./DEMO_SCRIPT.md)
+[🌐 Live Demo](https://datalocker.vercel.app/) | [📂 Repository](https://github.com/TheSoftNode/DATALOCKER) | [📖 Documentation](./HACKATHON_SUBMISSION.md)
