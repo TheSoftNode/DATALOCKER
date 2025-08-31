@@ -79,8 +79,8 @@ DataLocker/
 
 ```bash
 # Clone the repository
-git clone [your-repo-url]
-cd DataLocker
+git clone https://github.com/TheSoftNode/DATALOCKER.git
+cd DATALOCKER
 
 # Install contract dependencies
 cd datalocker-contracts
@@ -198,4 +198,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 **Built with ❤️ for Aleph Hackathon 2025**
 
-[🌐 Live Demo](http://localhost:3001) | [📖 Documentation](./HACKATHON_SUBMISSION.md) | [🎬 Demo Video](./DEMO_SCRIPT.md)
+[🌐 Repository](https://github.com/TheSoftNode/DATALOCKER) | [📖 Documentation](./HACKATHON_SUBMISSION.md) | [🎬 Demo Video](./DEMO_SCRIPT.md)

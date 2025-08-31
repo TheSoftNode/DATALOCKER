@@ -98,7 +98,7 @@ export function Footer() {
             >
               <Link
                 className="group flex items-center gap-2 text-slate-700 dark:text-slate-300 hover:text-teal-600 dark:hover:text-teal-400 transition-colors duration-300 px-3 py-2 rounded-lg hover:bg-teal-50/50 dark:hover:bg-teal-950/30"
-                href="https://github.com/FIL-Builders/fs-upload-dapp"
+                href="https://github.com/TheSoftNode/DATALOCKER"
                 target="_blank"
               >
                 <div className="group-hover:rotate-3 transition-transform duration-300">

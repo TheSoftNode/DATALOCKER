@@ -181,7 +181,7 @@ export default function Dashboard() {
                     className="text-blue-800 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-950/50 rounded-full"
                   >
                     <a
-                      href="https://github.com/yourusername/datalocker"
+                      href="https://github.com/TheSoftNode/DATALOCKER"
                       target="_blank"
                       rel="noopener noreferrer"
                     >
