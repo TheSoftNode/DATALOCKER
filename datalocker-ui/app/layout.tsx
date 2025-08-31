@@ -49,7 +49,7 @@ export default function RootLayout({
             console.log("blocked", info);
           }}
         >
-          <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+          <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
             <ConfettiProvider>
               <QueryClientProvider client={queryClient}>
                 <WagmiProvider config={config}>
