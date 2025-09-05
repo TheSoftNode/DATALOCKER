@@ -1,0 +1,48 @@
+Name: DataLocker-Low-Balance-Alert
+Trigger:
+  TriggerSourceContract: "0x5b4495F43501842C513afef03e581f0791fDe406"
+  TriggerChainID: 314159
+  TriggerEventName: "StorageExpired"
+  TriggerEventFilter: ""
+  TriggerSourceContractABI: '[{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"storageId","type":"uint256"},{"indexed":true,"internalType":"address","name":"user","type":"address"},{"indexed":false,"internalType":"uint256","name":"refundAmount","type":"uint256"},{"indexed":false,"internalType":"enum DataLocker.PaymentToken","name":"paymentToken","type":"uint8"}],"name":"StorageExpired","type":"event"}]'
+  Meta: "Monitor for storage expiration events and send user notifications"
+  ActionStatusNotificationPOSTURL: "https://discord.com/api/webhooks/YOUR_WEBHOOK_URL"
+
+Actions:
+  - Name: GetStorageInfo
+    Type: call
+    TargetContract: "0x5b4495F43501842C513afef03e581f0791fDe406"
+    TargetFunction: "getStorageInfo"
+    TargetParams:
+      - "{{$storageId}}"
+    ChainID: 314159
+    EncodedABI: '[{"inputs":[{"internalType":"uint256","name":"storageId","type":"uint256"}],"name":"getStorageInfo","outputs":[{"components":[{"internalType":"bytes","name":"pieceCid","type":"bytes"},{"internalType":"uint256","name":"pieceSize","type":"uint256"},{"internalType":"address","name":"user","type":"address"},{"internalType":"uint256","name":"depositAmount","type":"uint256"},{"internalType":"uint256","name":"usedAmount","type":"uint256"},{"internalType":"uint256","name":"expirationEpoch","type":"uint256"},{"internalType":"uint64","name":"dealId","type":"uint64"},{"internalType":"bool","name":"isActive","type":"bool"},{"internalType":"string","name":"label","type":"string"},{"internalType":"uint256","name":"storageId","type":"uint256"},{"internalType":"enum DataLocker.PaymentToken","name":"paymentToken","type":"uint8"},{"internalType":"uint256","name":"lastRenewalEpoch","type":"uint256"},{"internalType":"string","name":"ipfsHash","type":"string"}],"internalType":"struct DataLocker.StorageData","name":"","type":"tuple"}],"stateMutability":"view","type":"function"}]'
+    RetriesUntilSuccess: 2
+
+  - Name: SendDiscordAlert
+    Type: post
+    APIEndpoint: "https://discord.com/api/webhooks/YOUR_WEBHOOK_URL"
+    APIPayload:
+      content: "⚠️ **DataLocker Storage Expired**"
+      embeds:
+        - title: "Storage Deal Expired"
+          description: "A storage deal has expired due to insufficient funds"
+          color: 15158332
+          fields:
+            - name: "Storage ID"
+              value: "{{$storageId}}"
+              inline: true
+            - name: "User Address" 
+              value: "{{$user}}"
+              inline: true
+            - name: "Refund Available"
+              value: "{{$refundAmount}} {{$paymentToken == 0 ? 'FIL' : 'USDFC'}}"
+              inline: true
+            - name: "File Label"
+              value: "{{GetStorageInfo.returnValue.label}}"
+              inline: false
+          timestamp: "{{$timestamp}}"
+    RetriesUntilSuccess: 3
+
+Execution:
+  Mode: sequential

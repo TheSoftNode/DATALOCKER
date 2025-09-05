@@ -1,0 +1,65 @@
+Name: DataLocker-Deal-Near-Expiration
+Trigger:
+  TriggerSourceContract: "0x5b4495F43501842C513afef03e581f0791fDe406"
+  TriggerChainID: 314159
+  TriggerEventName: "DealNearExpiration"
+  TriggerEventFilter: ""
+  TriggerSourceContractABI: '[{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"storageId","type":"uint256"},{"indexed":true,"internalType":"address","name":"user","type":"address"},{"indexed":false,"internalType":"uint256","name":"expirationEpoch","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"currentEpoch","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"remainingBalance","type":"uint256"},{"indexed":false,"internalType":"string","name":"label","type":"string"}],"name":"DealNearExpiration","type":"event"}]'
+  Meta: "Alert users when their storage deals are approaching expiration"
+  ActionStatusNotificationPOSTURL: "https://discord.com/api/webhooks/YOUR_WEBHOOK_URL"
+
+Actions:
+  - Name: CalculateDaysUntilExpiry
+    Type: call
+    TargetContract: "0x5b4495F43501842C513afef03e581f0791fDe406"
+    TargetFunction: "getCurrentEpoch"
+    TargetParams: []
+    ChainID: 314159
+    EncodedABI: '[{"inputs":[],"name":"getCurrentEpoch","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"}]'
+    RetriesUntilSuccess: 2
+
+  - Name: SendExpirationWarning
+    Type: post
+    APIEndpoint: "https://discord.com/api/webhooks/YOUR_WEBHOOK_URL"
+    APIPayload:
+      content: "⏰ **DataLocker Expiration Warning**"
+      embeds:
+        - title: "Storage Deal Expiring Soon"
+          description: "Your storage deal is approaching expiration"
+          color: 16753920
+          fields:
+            - name: "Storage ID"
+              value: "{{$storageId}}"
+              inline: true
+            - name: "User Address"
+              value: "{{$user}}"
+              inline: true
+            - name: "File Label"
+              value: "{{$label}}"
+              inline: false
+            - name: "Remaining Balance"
+              value: "{{$remainingBalance}} tokens"
+              inline: true
+            - name: "Expiration Epoch"
+              value: "{{$expirationEpoch}}"
+              inline: true
+            - name: "Current Epoch"
+              value: "{{$currentEpoch}}"
+              inline: true
+          footer:
+            text: "Ensure sufficient balance for automatic renewal"
+          timestamp: "{{$timestamp}}"
+    RetriesUntilSuccess: 3
+
+  - Name: TriggerAutoRenewal
+    Type: call
+    TargetContract: "0x5b4495F43501842C513afef03e581f0791fDe406"
+    TargetFunction: "kwalaAutoRenew"
+    TargetParams:
+      - "{{$storageId}}"
+    ChainID: 314159
+    EncodedABI: '[{"inputs":[{"internalType":"uint256","name":"storageId","type":"uint256"}],"name":"kwalaAutoRenew","outputs":[{"internalType":"bool","name":"success","type":"bool"},{"internalType":"string","name":"reason","type":"string"}],"stateMutability":"nonpayable","type":"function"}]'
+    RetriesUntilSuccess: 2
+
+Execution:
+  Mode: sequential

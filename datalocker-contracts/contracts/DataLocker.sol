@@ -112,6 +112,32 @@ contract DataLocker {
 
     event OperatorAuthorized(address indexed operator, bool authorized);
 
+    // Kwala-specific events for automation
+    event DealNearExpiration(
+        uint256 indexed storageId,
+        address indexed user,
+        uint256 expirationEpoch,
+        uint256 currentEpoch,
+        uint256 remainingBalance,
+        string label
+    );
+
+    event LowBalanceWarning(
+        uint256 indexed storageId,
+        address indexed user,
+        uint256 remainingBalance,
+        uint256 estimatedRenewalCost,
+        PaymentToken paymentToken,
+        string label
+    );
+
+    event AutoRenewalTriggered(
+        uint256 indexed storageId,
+        address indexed triggeredBy,
+        bool success,
+        string reason
+    );
+
     // Errors
     error DataLockerV2__InsufficientDeposit();
     error DataLockerV2__StorageNotFound();
@@ -345,7 +371,10 @@ contract DataLocker {
     ) external onlyAuthorized validStorage(storageId) {
         StorageData storage data = storageRecords[storageId];
 
-        if (!data.isActive) return;
+        if (!data.isActive) {
+            emit AutoRenewalTriggered(storageId, msg.sender, false, "Storage not active");
+            return;
+        }
 
         uint256 currentEpoch = getCurrentEpoch();
         uint256 epochsUntilExpiry = data.expirationEpoch > currentEpoch
@@ -354,7 +383,23 @@ contract DataLocker {
 
         // Check if renewal is needed
         uint256 renewalThresholdEpochs = RENEWAL_THRESHOLD * EPOCHS_PER_DAY;
-        if (epochsUntilExpiry > renewalThresholdEpochs) return;
+        
+        // Emit event for Kwala monitoring even if renewal not needed yet
+        if (epochsUntilExpiry <= renewalThresholdEpochs * 2) { // Warning at 60 days
+            emit DealNearExpiration(
+                storageId,
+                data.user,
+                data.expirationEpoch,
+                currentEpoch,
+                data.depositAmount - data.usedAmount,
+                data.label
+            );
+        }
+        
+        if (epochsUntilExpiry > renewalThresholdEpochs) {
+            emit AutoRenewalTriggered(storageId, msg.sender, false, "Renewal not needed yet");
+            return;
+        }
 
         // Use real Pandora service for renewal cost calculation
         if (address(pandoraService) != address(0)) {
@@ -367,39 +412,89 @@ contract DataLocker {
                 );
 
             uint256 renewalCost = renewalCheck.depositAmountNeeded;
+            uint256 remainingBalance = data.depositAmount - data.usedAmount;
+
+            // Emit low balance warning for Kwala monitoring
+            if (remainingBalance < renewalCost * 2) { // Warn when funds for < 2 renewals
+                emit LowBalanceWarning(
+                    storageId,
+                    data.user,
+                    remainingBalance,
+                    renewalCost,
+                    data.paymentToken,
+                    data.label
+                );
+            }
 
             // Check if sufficient funds available
-            if (data.depositAmount - data.usedAmount < renewalCost) {
+            if (remainingBalance < renewalCost) {
                 // Mark as expired and allow withdrawal of remaining funds
                 data.isActive = false;
                 emit StorageExpired(
                     storageId,
                     data.user,
-                    data.depositAmount - data.usedAmount,
+                    remainingBalance,
                     data.paymentToken
                 );
+                emit AutoRenewalTriggered(storageId, msg.sender, false, "Insufficient funds");
                 return;
             }
 
             // Perform renewal through real SynapseSDK integration
             _renewThroughRealPandora(storageId, renewalCost, renewalCheck);
+            emit AutoRenewalTriggered(storageId, msg.sender, true, "Renewal successful");
         } else {
             // Fallback calculation if Pandora service not available
             uint256 renewalEpochs = STORAGE_DURATION * EPOCHS_PER_DAY;
             uint256 renewalCost = _calculateFallbackStorageCost(data.pieceSize, renewalEpochs);
+            uint256 remainingBalance = data.depositAmount - data.usedAmount;
 
-            if (data.depositAmount - data.usedAmount < renewalCost) {
+            if (remainingBalance < renewalCost) {
                 data.isActive = false;
                 emit StorageExpired(
                     storageId,
                     data.user,
-                    data.depositAmount - data.usedAmount,
+                    remainingBalance,
                     data.paymentToken
                 );
+                emit AutoRenewalTriggered(storageId, msg.sender, false, "Insufficient funds (fallback)");
                 return;
             }
 
             _renewFallback(storageId, renewalCost, renewalEpochs);
+            emit AutoRenewalTriggered(storageId, msg.sender, true, "Renewal successful (fallback)");
+        }
+    }
+
+    /**
+     * @notice Kwala-optimized renewal function with better event emission
+     * @param storageId The ID of the storage to renew
+     * @dev Designed specifically for Kwala automation workflows
+     */
+    function kwalaAutoRenew(uint256 storageId) external onlyAuthorized validStorage(storageId) returns (bool success, string memory reason) {
+        StorageData storage data = storageRecords[storageId];
+
+        if (!data.isActive) {
+            return (false, "Storage not active");
+        }
+
+        uint256 currentEpoch = getCurrentEpoch();
+        uint256 epochsUntilExpiry = data.expirationEpoch > currentEpoch
+            ? data.expirationEpoch - currentEpoch
+            : 0;
+
+        uint256 renewalThresholdEpochs = RENEWAL_THRESHOLD * EPOCHS_PER_DAY;
+        
+        if (epochsUntilExpiry > renewalThresholdEpochs) {
+            return (false, "Renewal not needed yet");
+        }
+
+        try this.checkAndRenewStorage(storageId) {
+            return (true, "Renewal completed successfully");
+        } catch Error(string memory errorMessage) {
+            return (false, errorMessage);
+        } catch {
+            return (false, "Unknown error during renewal");
         }
     }
 
@@ -654,6 +749,98 @@ contract DataLocker {
         }
 
         return renewalQueue;
+    }
+
+    /**
+     * @notice Get storage deals that need low balance warnings for Kwala monitoring
+     * @return Array of storage IDs with low balances
+     */
+    function getLowBalanceStorageIds() external view returns (uint256[] memory) {
+        uint256 count = 0;
+
+        // First pass: count storage with low balances
+        for (uint256 i = 1; i < nextStorageId; i++) {
+            StorageData storage data = storageRecords[i];
+            if (data.isActive && data.expirationEpoch > 0) {
+                uint256 remainingBalance = data.depositAmount - data.usedAmount;
+                uint256 estimatedRenewalCost = _calculateFallbackStorageCost(
+                    data.pieceSize, 
+                    STORAGE_DURATION * EPOCHS_PER_DAY
+                );
+                
+                if (remainingBalance < estimatedRenewalCost * 2) { // Warn when < 2 renewals left
+                    count++;
+                }
+            }
+        }
+
+        // Second pass: populate array
+        uint256[] memory lowBalanceIds = new uint256[](count);
+        uint256 index = 0;
+        for (uint256 i = 1; i < nextStorageId; i++) {
+            StorageData storage data = storageRecords[i];
+            if (data.isActive && data.expirationEpoch > 0) {
+                uint256 remainingBalance = data.depositAmount - data.usedAmount;
+                uint256 estimatedRenewalCost = _calculateFallbackStorageCost(
+                    data.pieceSize, 
+                    STORAGE_DURATION * EPOCHS_PER_DAY
+                );
+                
+                if (remainingBalance < estimatedRenewalCost * 2) {
+                    lowBalanceIds[index] = i;
+                    index++;
+                }
+            }
+        }
+
+        return lowBalanceIds;
+    }
+
+    /**
+     * @notice Get comprehensive status for Kwala automation monitoring
+     * @return totalActive Number of active storage deals
+     * @return needingRenewal Number of deals needing renewal
+     * @return lowBalance Number of deals with low balance
+     * @return totalEscrowedFIL Total FIL in escrow
+     * @return totalEscrowedUSDFC Total USDFC in escrow
+     */
+    function getAutomationStatus() external view returns (
+        uint256 totalActive,
+        uint256 needingRenewal, 
+        uint256 lowBalance,
+        uint256 totalEscrowedFIL,
+        uint256 totalEscrowedUSDFC
+    ) {
+        uint256 currentEpoch = getCurrentEpoch();
+        uint256 renewalThresholdEpochs = RENEWAL_THRESHOLD * EPOCHS_PER_DAY;
+
+        for (uint256 i = 1; i < nextStorageId; i++) {
+            StorageData storage data = storageRecords[i];
+            if (data.isActive && data.expirationEpoch > 0) {
+                totalActive++;
+                
+                uint256 epochsUntilExpiry = data.expirationEpoch > currentEpoch
+                    ? data.expirationEpoch - currentEpoch
+                    : 0;
+                
+                if (epochsUntilExpiry <= renewalThresholdEpochs) {
+                    needingRenewal++;
+                }
+                
+                uint256 remainingBalance = data.depositAmount - data.usedAmount;
+                uint256 estimatedRenewalCost = _calculateFallbackStorageCost(
+                    data.pieceSize, 
+                    STORAGE_DURATION * EPOCHS_PER_DAY
+                );
+                
+                if (remainingBalance < estimatedRenewalCost * 2) {
+                    lowBalance++;
+                }
+            }
+        }
+
+        totalEscrowedFIL = totalEscrowFIL;
+        totalEscrowedUSDFC = totalEscrowUSDFC;
     }
 
     /**

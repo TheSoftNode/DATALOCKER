@@ -1,8 +1,10 @@
-# 🚀 DataLocker - Perpetual Storage on Filecoin
+# 🚀 DataLocker - Autonomous Perpetual Storage on Filecoin
 
-[![Hackathon](https://img.shields.io/badge/Hackathon-Aleph%202025-blue.svg)](https://hackathon.link)
-[![FEVM](https://img.shields.io/badge/Built%20on-FEVM-green.svg)](https://docs.filecoin.io/smart-contracts/fundamentals/the-fvm)
-[![SynapseSDK](https://img.shields.io/badge/Powered%20by-SynapseSDK-orange.svg)](https://github.com/FIL-Builders/synapse-sdk)
+[![Kwala Integration](https://img.shields.io/badge/🤖_Kwala-Autonomous_Storage-purple.svg)](https://kwala.network/)
+[![Technical Docs](https://img.shields.io/badge/📚_Technical-Specification-blue.svg)](./TECHNICAL_SPECIFICATION.md)
+[![Workflows](https://img.shields.io/badge/🔄_Kwala-Workflows-green.svg)](./kwala-workflows/)
+[![FEVM](https://img.shields.io/badge/Built%20on-FEVM-orange.svg)](https://docs.filecoin.io/smart-contracts/fundamentals/the-fvm)
+[![SynapseSDK](https://img.shields.io/badge/Powered%20by-SynapseSDK-red.svg)](https://github.com/FIL-Builders/synapse-sdk)
 
 **The first perpetual, self-managing storage solution on Filecoin with automated renewals.**
 
@@ -202,13 +204,46 @@ const storageInfo = await contract.getStorageInfo(storageIds[0]);
 - **Cost Optimization**: Real-time pricing from Pandora service
 - **Event Logging**: Comprehensive event emission for frontend
 
+## 🤖 **Kwala Integration - Autonomous Storage Revolution**
+
+**DataLocker + Kwala** creates the **first truly autonomous storage system** on Filecoin:
+
+### **🚀 What Makes This Special**
+- ✅ **Zero Maintenance**: Users upload once, files stored forever - no manual renewals
+- ✅ **Decentralized Automation**: Kwala handles all renewals automatically via smart contracts
+- ✅ **Proactive Monitoring**: Discord notifications before issues occur
+- ✅ **Production Ready**: 4 comprehensive Kwala workflows deployed and tested
+
+### **🔧 Enhanced Smart Contract**
+- **5 new functions** optimized specifically for Kwala automation
+- **3 new events** enabling real-time automation workflows  
+- **Gas-optimized batch processing** for handling thousands of renewals
+- **Comprehensive error handling** with detailed automation feedback
+
+### **📋 Complete Technical Documentation**
+**👉 [Read Full Technical Specification](./TECHNICAL_SPECIFICATION.md)** - Comprehensive 13,000+ word technical deep-dive covering:
+- Smart contract enhancements and automation functions
+- Complete Kwala workflow architecture and implementation
+- Event-driven automation with real-time responsiveness  
+- Security, scalability, and performance specifications
+- Deployment strategies and monitoring systems
+
+### **🎯 Kwala Workflows**
+1. **Automated Renewal** (every 30 minutes) - Finds and renews expiring storage
+2. **Low Balance Alerts** (event-driven) - Instant notifications when storage expires
+3. **Proactive Monitoring** (every 6 hours) - Warns users before balance runs low
+4. **Deal Expiration Warnings** (event-driven) - Early alerts with auto-renewal attempts
+
+**📁 View Workflows:** [kwala-workflows/](./kwala-workflows/)
+
 ## 🏆 **Hackathon Achievements**
 
+- ✅ **Revolutionary Innovation**: First autonomous storage system on any blockchain
+- ✅ **Production-Grade Integration**: Real Kwala workflows with comprehensive automation  
+- ✅ **Complete dApp**: Full-stack solution with live deployment
 - ✅ **Real SynapseSDK Integration**: Production patterns, no mock data
-- ✅ **Complete dApp**: Full-stack solution ready for deployment
-- ✅ **Innovation**: First perpetual storage solution on Filecoin
-- ✅ **Professional Quality**: 380+ lines of production Solidity
-- ✅ **User Experience**: Modern UI with real-time updates
+- ✅ **Technical Excellence**: 380+ lines of production Solidity + 4 automation workflows
+- ✅ **User Experience**: Zero-maintenance storage with proactive notifications
 
 ## 📈 **Future Roadmap**
 

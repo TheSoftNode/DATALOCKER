@@ -1,0 +1,54 @@
+Name: DataLocker-Proactive-Balance-Monitor
+Trigger:
+  RepeatEvery: 21600000 # Every 6 hours in milliseconds
+  Meta: "Proactively check for storage deals with low balances before they expire"
+  ActionStatusNotificationPOSTURL: "https://discord.com/api/webhooks/YOUR_WEBHOOK_URL"
+
+Actions:
+  - Name: GetLowBalanceStorageIds
+    Type: call
+    TargetContract: "0x5b4495F43501842C513afef03e581f0791fDe406"
+    TargetFunction: "getLowBalanceStorageIds"
+    TargetParams: []
+    ChainID: 314159
+    EncodedABI: '[{"inputs":[],"name":"getLowBalanceStorageIds","outputs":[{"internalType":"uint256[]","name":"","type":"uint256[]"}],"stateMutability":"view","type":"function"}]'
+    RetriesUntilSuccess: 3
+
+  - Name: GetAutomationStatus
+    Type: call
+    TargetContract: "0x5b4495F43501842C513afef03e581f0791fDe406"
+    TargetFunction: "getAutomationStatus"
+    TargetParams: []
+    ChainID: 314159
+    EncodedABI: '[{"inputs":[],"name":"getAutomationStatus","outputs":[{"internalType":"uint256","name":"totalActive","type":"uint256"},{"internalType":"uint256","name":"needingRenewal","type":"uint256"},{"internalType":"uint256","name":"lowBalance","type":"uint256"},{"internalType":"uint256","name":"totalEscrowedFIL","type":"uint256"},{"internalType":"uint256","name":"totalEscrowedUSDFC","type":"uint256"}],"stateMutability":"view","type":"function"}]'
+    RetriesUntilSuccess: 3
+
+  - Name: SendLowBalanceWarning
+    Type: post
+    APIEndpoint: "https://discord.com/api/webhooks/YOUR_WEBHOOK_URL"
+    APIPayload:
+      content: "🔔 **DataLocker Balance Warning**"
+      embeds:
+        - title: "Proactive Balance Check"
+          description: "Storage deals detected with low balances"
+          color: 16776960
+          fields:
+            - name: "Storage IDs with Low Balance"
+              value: "{{GetLowBalanceStorageIds.returnValue}}"
+              inline: false
+            - name: "Total Active Storage"
+              value: "{{GetAutomationStatus.returnValue[0]}}"
+              inline: true
+            - name: "Needing Renewal Soon"
+              value: "{{GetAutomationStatus.returnValue[1]}}"
+              inline: true
+            - name: "Low Balance Count"
+              value: "{{GetAutomationStatus.returnValue[2]}}"
+              inline: true
+          footer:
+            text: "Please top up balances to ensure continuous storage"
+          timestamp: "{{$timestamp}}"
+    RetriesUntilSuccess: 3
+
+Execution:
+  Mode: sequential

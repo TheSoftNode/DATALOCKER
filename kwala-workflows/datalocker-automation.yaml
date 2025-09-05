@@ -1,0 +1,246 @@
+Name: DataLocker-Automated-Renewal
+Trigger:
+  RepeatEvery: 1800000 # Every 30 minutes in milliseconds
+  Meta: "Automated storage deal renewal check for DataLocker perpetual storage"
+  ActionStatusNotificationPOSTURL: "https://discord.com/api/webhooks/YOUR_WEBHOOK_URL"
+Actions:
+  - Name: GetRenewalQueue
+    Type: call
+    TargetContract: "0x5b4495F43501842C513afef03e581f0791fDe406"
+    TargetFunction: "getRenewalQueue"
+    TargetParams: []
+    ChainID: 314159
+    EncodedABI: '[{"inputs":[],"name":"getRenewalQueue","outputs":[{"internalType":"uint256[]","name":"","type":"uint256[]"}],"stateMutability":"view","type":"function"}]'
+    RetriesUntilSuccess: 3
+    
+  - Name: BatchProcessRenewals
+    Type: call
+    TargetContract: "0x5b4495F43501842C513afef03e581f0791fDe406"
+    TargetFunction: "batchProcessRenewals"
+    TargetParams:
+      - "{{GetRenewalQueue.returnValue}}"
+    ChainID: 314159
+    EncodedABI: '[{"inputs":[{"internalType":"uint256[]","name":"storageIds","type":"uint256[]"}],"name":"batchProcessRenewals","outputs":[],"stateMutability":"nonpayable","type":"function"}]'
+    RetriesUntilSuccess: 3
+    
+Execution:
+  Mode: sequential
+
+  # Low Balance Notification Workflow
+  - name: LowBalanceNotification
+    description: Monitors user balances and sends notifications when funds are low
+    trigger:
+      type: event
+      network: filecoin
+      contract: datalocker
+      event: "StorageExpired"
+    
+    steps:
+      - name: ExtractEventData
+        type: event_parse
+        outputs:
+          - name: storage_id
+            type: uint256
+          - name: user_address
+            type: address
+          - name: refund_amount
+            type: uint256
+          - name: payment_token
+            type: uint8
+      
+      - name: GetStorageInfo
+        type: contract_read
+        network: filecoin
+        contract: datalocker
+        function: "getStorageInfo"
+        params:
+          - name: storageId
+            value: "{{storage_id}}"
+        outputs:
+          - name: storage_data
+            type: tuple
+      
+      - name: SendLowBalanceAlert
+        type: webhook
+        url: "https://discord.com/api/webhooks/YOUR_WEBHOOK_URL"
+        method: POST
+        headers:
+          Content-Type: "application/json"
+        body:
+          content: |
+            ⚠️ **DataLocker Storage Expired**
+            
+            **Storage ID:** {{storage_id}}
+            **User:** {{user_address}}
+            **File:** {{storage_data.label}}
+            **Refund Available:** {{refund_amount}} {{payment_token == 0 ? 'FIL' : 'USDFC'}}
+            
+            The storage deal has expired due to insufficient funds. Please top up your balance to resume automatic renewals.
+          embeds:
+            - title: "Storage Deal Expired"
+              color: 15158332  # Red color
+              fields:
+                - name: "Storage ID"
+                  value: "{{storage_id}}"
+                  inline: true
+                - name: "User Address"
+                  value: "{{user_address}}"
+                  inline: true
+                - name: "Refund Amount"
+                  value: "{{refund_amount}} {{payment_token == 0 ? 'FIL' : 'USDFC'}}"
+                  inline: true
+
+  # Proactive Balance Monitoring
+  - name: ProactiveBalanceCheck
+    description: Monitors user balances and sends warnings before expiration
+    trigger:
+      type: timer
+      schedule: "0 */6 * * *" # Every 6 hours
+    
+    steps:
+      - name: GetAllActiveStorage
+        type: contract_read
+        network: filecoin
+        contract: datalocker
+        function: "nextStorageId"
+        outputs:
+          - name: max_storage_id
+            type: uint256
+      
+      - name: CheckEachStorage
+        type: loop
+        range: "1..{{max_storage_id}}"
+        variable: storage_id
+        steps:
+          - name: GetStorageData
+            type: contract_read
+            network: filecoin
+            contract: datalocker
+            function: "getStorageInfo"
+            params:
+              - name: storageId
+                value: "{{storage_id}}"
+            outputs:
+              - name: storage_info
+                type: tuple
+            on_error: continue
+          
+          - name: CheckIfNeedsRenewal
+            type: contract_read
+            network: filecoin
+            contract: datalocker
+            function: "needsRenewal"
+            params:
+              - name: storageId
+                value: "{{storage_id}}"
+            outputs:
+              - name: needs_renewal
+                type: bool
+            on_error: continue
+          
+          - name: SendWarningIfNeeded
+            type: conditional
+            condition: "needs_renewal && storage_info.isActive"
+            then:
+              - name: CalculateRemainingBalance
+                type: calculate
+                formula: "storage_info.depositAmount - storage_info.usedAmount"
+                outputs:
+                  - name: remaining_balance
+                    type: uint256
+              
+              - name: SendWarningWebhook
+                type: webhook
+                url: "https://discord.com/api/webhooks/YOUR_WEBHOOK_URL"
+                method: POST
+                headers:
+                  Content-Type: "application/json"
+                body:
+                  content: |
+                    🔔 **DataLocker Renewal Warning**
+                    
+                    **Storage ID:** {{storage_id}}
+                    **User:** {{storage_info.user}}
+                    **File:** {{storage_info.label}}
+                    **Remaining Balance:** {{remaining_balance}} {{storage_info.paymentToken == 0 ? 'FIL' : 'USDFC'}}
+                    **Expires Soon:** Storage will expire within 30 days
+                    
+                    Please ensure sufficient funds are available for automatic renewal.
+
+  # Cross-Chain Cost Optimization (Future Enhancement)
+  - name: CostOptimization
+    description: Monitor storage costs and optimize across chains when beneficial
+    trigger:
+      type: timer
+      schedule: "0 0 * * *" # Daily at midnight
+    
+    steps:
+      - name: GetCurrentStorageCost
+        type: contract_read
+        network: filecoin
+        contract: datalocker
+        function: "getBalanceInfo"
+        outputs:
+          - name: balance_info
+            type: tuple
+      
+      - name: LogOptimizationCheck
+        type: log
+        message: "Checking for storage cost optimization opportunities"
+        data:
+          current_fil_escrow: "{{balance_info[1]}}"
+          current_usdfc_escrow: "{{balance_info[4]}}"
+      
+      # Future: Add logic to check costs on other chains
+      # and automatically move funds if significant savings available
+
+# Global configuration
+settings:
+  gas_price_strategy: "medium"
+  max_retries: 3
+  retry_delay: 30 # seconds
+  notifications:
+    on_error: true
+    on_success: false
+  
+  # Rate limiting to avoid spam
+  rate_limits:
+    webhook_calls: 
+      max_per_hour: 10
+    contract_calls:
+      max_per_minute: 20
+
+# Security settings
+security:
+  authorized_operators:
+    - "0x742d35cc6ad41870c65c13c83ceb6a1b3c68c4a7" # Kwala operator address
+  
+  emergency_stop:
+    enabled: true
+    conditions:
+      - "gas_price > 1000000000000" # Stop if gas price > 1000 gwei
+      - "failed_transactions > 5"   # Stop if too many failures
+
+# Monitoring and analytics
+monitoring:
+  metrics:
+    - name: "renewals_processed"
+      type: "counter"
+      description: "Total number of successful renewals processed"
+    
+    - name: "notifications_sent"
+      type: "counter"
+      description: "Total number of notifications sent to users"
+    
+    - name: "average_renewal_cost"
+      type: "gauge"
+      description: "Average cost of storage renewals in FIL"
+  
+  alerts:
+    - name: "high_renewal_failure_rate"
+      condition: "failed_renewals / total_renewals > 0.1"
+      action: "send_admin_alert"
+    
+    - name: "low_contract_balance"
+      condition: "contract_balance < minimum_threshold"
+      action: "send_admin_alert"
